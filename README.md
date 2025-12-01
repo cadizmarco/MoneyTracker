@@ -1,2 +1,0 @@
-# MoneyTracker
-Money Tracker Description
