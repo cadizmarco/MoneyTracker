@@ -146,14 +146,23 @@ The frontend is already configured with Vite and should work out of the box. Mak
 
 ## 🚀 Deployment
 
-### Backend Deployment
+For detailed step-by-step deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+### Quick Deployment Overview
+
+**Backend Deployment:**
 1. Build the backend: `cd backend && npm run build`
 2. Set production environment variables
 3. Start the server: `npm start`
 
-### Frontend Deployment
+**Frontend Deployment:**
 1. Build the frontend: `cd frontend && npm run build`
 2. Deploy the `dist` folder to your hosting service
+
+**Recommended Platforms:**
+- **Frontend**: Vercel, Netlify, or Render (Static Site)
+- **Backend**: Railway, Render, or Heroku
+- **Database**: MongoDB Atlas (free tier available)
 
 ## 🤝 Contributing
 
