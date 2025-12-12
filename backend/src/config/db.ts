@@ -22,9 +22,16 @@ export const connectDB = async () => {
     const opts = {
         bufferCommands: false,
         dbName: process.env.MONGO_DB_NAME || process.env.DB_NAME || 'money-tracker',
-        serverSelectionTimeoutMS: 5000, // Fail after 5 seconds if cannot connect
-        socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+        // Increased timeout slightly to check if latency is high, but kept strict to fail fast
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
     };
+
+    // DEBUG: Log masked URI to ensure env var is actually read in Vercel
+    const maskedURI = MONGODB_URI.replace(/:\/\/([^:]+):([^@]+)@/, '://$1:****@');
+    console.log(`⏳ Connecting to MongoDB...`);
+    console.log(`Debug Info: URI Defined? ${!!MONGODB_URI}, URI Starts: ${MONGODB_URI.substring(0, 15)}...`);
+    console.log(`Debug Info: DB Name: ${opts.dbName}`);
 
     console.log(`⏳ Connecting to MongoDB (db: ${opts.dbName})...`);
 
