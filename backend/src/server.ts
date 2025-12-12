@@ -104,6 +104,7 @@ app.use((req, res) => {
 });
 
 // Export app for serverless functions (Vercel)
+// Using both ES6 and CommonJS exports for compatibility
 export default app;
 module.exports = app;
 

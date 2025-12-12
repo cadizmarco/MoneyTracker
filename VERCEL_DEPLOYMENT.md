@@ -77,7 +77,7 @@ DB_NAME=money-tracker
 # JWT Secret (generate a strong random string)
 # Use: node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-JWT_EXPIRES_IN=7d
+JWT_EXPIRE=7d
 
 # Frontend URL (for CORS)
 FRONTEND_URL=https://your-app.vercel.app
@@ -239,7 +239,7 @@ RATE_LIMIT_MAX_REQUESTS=100
 | `MONGO_DB_NAME` | Database name | `money-tracker` |
 | `DB_NAME` | Alternative DB name | `money-tracker` |
 | `JWT_SECRET` | JWT signing secret | Random 64+ character string |
-| `JWT_EXPIRES_IN` | Token expiration | `7d` |
+| `JWT_EXPIRE` | Token expiration | `7d` |
 | `FRONTEND_URL` | Frontend URL for CORS | `https://your-app.vercel.app` |
 | `FRONTEND_URLS` | Multiple frontend URLs (comma-separated) | `https://app1.vercel.app,https://app2.vercel.app` |
 | `NODE_ENV` | Environment | `production` |
