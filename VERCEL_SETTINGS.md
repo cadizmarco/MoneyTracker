@@ -4,7 +4,7 @@
 
 ### Build Command
 ```bash
-cd backend && npm install && npm run build && cd ../frontend && npm install && npm run build
+npm run vercel:build
 ```
 
 ### Output Directory
