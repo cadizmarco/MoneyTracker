@@ -1,5 +1,7 @@
 // Lightweight API client for backend
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// On Vercel, the backend is serverless at /api, so we can use relative path
+// Localhost needs full URL
+const BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 type ApiResult<T> = { success: boolean; data?: T; message?: string };
 
