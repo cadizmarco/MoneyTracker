@@ -10,6 +10,11 @@ export async function login(email: string, password: string): Promise<ApiResult<
     body: JSON.stringify({ email, password }),
   });
   const json = await res.json();
+  if (!res.ok) {
+    console.error('Login Failed Response:', json);
+    // Return the error json so the UI can display the message, but log it first
+    return { success: false, message: json.error || json.message || 'Server Error' };
+  }
   return json;
 }
 
