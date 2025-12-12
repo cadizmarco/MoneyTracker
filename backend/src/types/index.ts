@@ -1,7 +1,6 @@
 import { Document } from 'mongoose';
 
 export interface IUser extends Document {
-  _id: string;
   name: string;
   email: string;
   password: string;
@@ -12,7 +11,6 @@ export interface IUser extends Document {
 }
 
 export interface ITransaction extends Document {
-  _id: string;
   user: string;
   type: 'income' | 'expense';
   amount: number;
@@ -26,7 +24,6 @@ export interface ITransaction extends Document {
 }
 
 export interface IAccount extends Document {
-  _id: string;
   user: string;
   name: string;
   type: 'checking' | 'savings' | 'credit' | 'investment' | 'cash';
@@ -38,7 +35,6 @@ export interface IAccount extends Document {
 }
 
 export interface IBudget extends Document {
-  _id: string;
   user: string;
   name: string;
   amount: number;
