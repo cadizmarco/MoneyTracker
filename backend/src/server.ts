@@ -74,6 +74,13 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// DEBUG: Middleware to check if request is even reaching Express
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] Request received: ${req.method} ${req.url}`);
+  console.log(`[${new Date().toISOString()}] DB Connection State: ${mongoose.connection.readyState} (0=disc, 1=conn, 2=connecting)`);
+  next();
+});
+
 // Rate limiting
 const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const maxReq = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
