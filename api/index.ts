@@ -1,105 +1,77 @@
 // Vercel Serverless Function - Main API handler
-// This wraps the Express app to work as a serverless function
-// @ts-ignore - Vercel provides @vercel/node at runtime
+// @ts-ignore
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-// @ts-ignore - serverless-http is installed in api/package.json
-const serverless = require('serverless-http');
 
-// Import the Express app from the built backend
-// Note: This requires backend to be built before deployment
-let handler: any = null;
+// Track initialization to avoid repeated work
+let isInitialized = false;
+let initError: Error | null = null;
 
-async function getHandler() {
-  if (handler) return handler;
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const startTime = Date.now();
 
   try {
-    // Import the built Express app (CommonJS)
-    // The path is relative to the api/ directory
-    const serverModule = require('../backend/dist/server.js');
-    const expressApp = serverModule.default || serverModule;
-
-    // Wrap Express app with serverless-http
-    handler = serverless(expressApp, {
-      binary: ['image/*', 'application/pdf'],
+    console.log(`[${new Date().toISOString()}] Function invoked: ${req.method} ${req.url}`);
+    console.log(`[${new Date().toISOString()}] Environment check:`, {
+      mongoUri: !!(process.env.MONGO_URI || process.env.MONGODB_URI),
+      mongoDbName: process.env.MONGO_DB_NAME || process.env.DB_NAME,
+      nodeEnv: process.env.NODE_ENV,
+      vercel: process.env.VERCEL
     });
 
-    return handler;
-  } catch (error) {
-    console.error('Failed to load Express app:', error);
-    throw error;
-  }
-}
+    // Initialize the database connection with timeout
+    if (!isInitialized && !initError) {
+      console.log(`[${new Date().toISOString()}] Initializing database connection...`);
 
-// Import the database connection utility
-// We need to require it because it's a TS file compiled to JS in dist
-// But for type safety we can import the type if needed, or just rely on runtime import
-// Since this file is compiled separately or used with ts-node in some contexts, 
-// we will rely on loading the built version from backend/dist/config/db.js 
-
-export default async function (req: VercelRequest, res: VercelResponse) {
-  try {
-    // Debug: Check if files exist
-    const fs = require('fs');
-    const path = require('path');
-
-    // Check paths relative to the current working directory of the function
-    // Note: in Vercel, CWD might be the project root or the api folder depending on config.
-    // We used '../backend' relative to this file location (api/index.ts).
-    const dbPath = path.resolve(__dirname, '../backend/dist/config/db.js');
-    const serverPath = path.resolve(__dirname, '../backend/dist/server.js');
-
-    if (!fs.existsSync(dbPath)) {
-      console.error(`❌ Critical: Backend file not found at: ${dbPath}`);
-      // List files in current directory to help debug
       try {
-        const currentDir = fs.readdirSync(__dirname);
-        console.log('Files in api dir:', currentDir);
-        const parentDir = fs.readdirSync(path.resolve(__dirname, '..'));
-        console.log('Files in parent dir:', parentDir);
-      } catch (e) { console.log('Could not list dirs'); }
+        const initPromise = (async () => {
+          const dbModule = require('../backend/dist/config/db.js');
+          if (dbModule && dbModule.connectDB) {
+            await dbModule.connectDB();
+            console.log(`[${new Date().toISOString()}] Database connected successfully`);
+          }
+        })();
 
-      throw new Error(`Backend build missing at ${dbPath}. Did 'npm run build:backend' fail or process?`);
+        // 3-second timeout for initialization
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Database connection timeout (3s)')), 3000);
+        });
+
+        await Promise.race([initPromise, timeoutPromise]);
+        isInitialized = true;
+      } catch (error) {
+        console.error(`[${new Date().toISOString()}] Database initialization failed:`, error);
+        initError = error as Error;
+        throw error;
+      }
     }
 
-    // 1. Establish DB connection BEFORE handling request
-    // We import this dynamically to ensure it uses the built file
-    const dbModule = require(dbPath);
-
-    // Explicitly handle connectDB promise with a race timeout
-    if (dbModule && dbModule.connectDB) {
-      console.log('Using connectDB from loaded module');
-
-      const dbPromise = dbModule.connectDB();
-
-      // Create a timeout promise that rejects after 4000ms
-      // This protects against 504 Gateway Timeouts (10s) by failing fast
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
-          reject(new Error('Starting MongoDB connection timed out after 4000ms (Application-level timeout)'));
-        }, 4000);
-      });
-
-      await Promise.race([dbPromise, timeoutPromise]);
-
-    } else {
-      console.warn('⚠️ Could not find connectDB in backend build, relying on server.ts side-effects');
+    if (initError) {
+      throw initError;
     }
 
-    // 2. Get the express handler
-    const serverlessHandler = await getHandler();
-    return serverlessHandler(req, res);
+    // Load Express app
+    console.log(`[${new Date().toISOString()}] Loading Express handler...`);
+    const serverless = require('serverless-http');
+    const serverModule = require('../backend/dist/server.js');
+    const expressApp = serverModule.default || serverModule;
+    const expressHandler = serverless(expressApp);
+
+    console.log(`[${new Date().toISOString()}] Forwarding request to Express (took ${Date.now() - startTime}ms)`);
+    return expressHandler(req, res);
+
   } catch (error) {
-    console.error('Serverless function error:', error);
-    // Graceful error response
-    res.status(500).json({
+    const elapsed = Date.now() - startTime;
+    console.error(`[${new Date().toISOString()}] Handler error after ${elapsed}ms:`, error);
+
+    // Return error response
+    return res.status(500).json({
       success: false,
-      message: 'Internal server error',
-      // TEMPORARILY LEAK ERROR FOR DEBUGGING
+      message: 'Server initialization failed',
       error: String(error),
-      stack: (error as Error).stack,
-      envCheck: {
-        mongoUriExists: !!(process.env.MONGO_URI || process.env.MONGODB_URI),
-        nodeEnv: process.env.NODE_ENV
+      details: {
+        message: (error as Error).message,
+        mongoUriConfigured: !!(process.env.MONGO_URI || process.env.MONGODB_URI),
+        elapsedMs: elapsed
       }
     });
   }
