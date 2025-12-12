@@ -65,10 +65,22 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     // We import this dynamically to ensure it uses the built file
     const dbModule = require(dbPath);
 
-    // Explicitly handle connectDB promise
+    // Explicitly handle connectDB promise with a race timeout
     if (dbModule && dbModule.connectDB) {
       console.log('Using connectDB from loaded module');
-      await dbModule.connectDB();
+
+      const dbPromise = dbModule.connectDB();
+
+      // Create a timeout promise that rejects after 4000ms
+      // This protects against 504 Gateway Timeouts (10s) by failing fast
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error('Starting MongoDB connection timed out after 4000ms (Application-level timeout)'));
+        }, 4000);
+      });
+
+      await Promise.race([dbPromise, timeoutPromise]);
+
     } else {
       console.warn('⚠️ Could not find connectDB in backend build, relying on server.ts side-effects');
     }
@@ -84,8 +96,11 @@ export default async function (req: VercelRequest, res: VercelResponse) {
       message: 'Internal server error',
       // TEMPORARILY LEAK ERROR FOR DEBUGGING
       error: String(error),
-      stack: (error as Error).stack
+      stack: (error as Error).stack,
+      envCheck: {
+        mongoUriExists: !!(process.env.MONGO_URI || process.env.MONGODB_URI),
+        nodeEnv: process.env.NODE_ENV
+      }
     });
   }
 }
-
