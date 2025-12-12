@@ -24,13 +24,32 @@ app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 
 // CORS
-// Allowlist is read from FRONTEND_URLS (comma-separated) or FRONTEND_URL.
-// If the incoming request's Origin header matches one entry, the server
-// will echo that origin in Access-Control-Allow-Origin so the preflight
-// check passes for that origin. Requests with no Origin (curl, mobile)
-// are allowed.
-const rawFrontend = process.env.FRONTEND_URLS || process.env.FRONTEND_URL || 'http://localhost:5173';
-const frontendUrls = rawFrontend.split(',').map((u) => u.trim()).filter(Boolean);
+// CORS Configuration
+// Allowlist is constructed from:
+// 1. FRONTEND_URLS / FRONTEND_URL (manual env vars)
+// 2. VERCEL_URL (system env var, e.g. project.vercel.app)
+// 3. VERCEL_PROJECT_PRODUCTION_URL (system env var)
+// 4. Localhost (default)
+
+const allowedOrigins: string[] = [
+  'http://localhost:5173',
+  'http://localhost:3000'
+];
+
+if (process.env.FRONTEND_URL) allowedOrigins.push(process.env.FRONTEND_URL);
+if (process.env.FRONTEND_URLS) {
+  process.env.FRONTEND_URLS.split(',').forEach(u => allowedOrigins.push(u.trim()));
+}
+
+// Add Vercel automatically generated URLs
+if (process.env.VERCEL_URL) {
+  allowedOrigins.push(`https://${process.env.VERCEL_URL}`);
+}
+if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+  allowedOrigins.push(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`);
+}
+
+const frontendUrls = allowedOrigins.filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -60,32 +79,12 @@ const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const maxReq = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
 app.use(rateLimit({ windowMs, max: maxReq }));
 
-// Connect to MongoDB
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
-const dbName = process.env.MONGO_DB_NAME || process.env.DB_NAME || 'money-tracker';
-
-if (!mongoUri) {
-  console.error('❌ MONGODB_URI is not defined in environment variables');
-} else {
-  // Check if we are already connected or connecting
-  if (mongoose.connection.readyState === 0) {
-    mongoose
-      .connect(mongoUri, { dbName })
-      .then(() => {
-        console.log(`✓ MongoDB connected (db: ${dbName})`);
-      })
-      .catch((err) => {
-        console.error('MongoDB connection error:', err);
-        // Do NOT exit process in serverless; let the request fail gracefully
-        // process.exit(1);
-      });
-  }
-}
-
 // Health check with DB status
 app.get('/api/health', (req, res) => {
   const readyState = mongoose.connection.readyState; // 0=disconnected,1=connected,2=connecting,3=disconnecting
   const connected = readyState === 1;
+  const dbName = process.env.MONGO_DB_NAME || process.env.DB_NAME || 'money-tracker';
+
   res.json({
     success: true,
     message: 'OK',
@@ -121,7 +120,23 @@ module.exports = app;
 const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
 if (!isServerless && require.main === module) {
   const PORT = Number(process.env.PORT || 5000);
-  app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-  });
+  // Import connectDB for local execution from src
+  // We use require because we are modifying the module structure
+  // In a real TS setup we'd import it at top, but to avoid circular deps with existing imports we do it here or assume it works
+
+  const startServer = async () => {
+    try {
+      // Dynamic import to avoid breaking changes if file structure varies in build
+      const { connectDB } = require('./config/db');
+      await connectDB();
+      app.listen(PORT, () => {
+        console.log(`🚀 Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+      });
+    } catch (err) {
+      console.error('Failed to start server:', err);
+      process.exit(1);
+    }
+  };
+
+  startServer();
 }
