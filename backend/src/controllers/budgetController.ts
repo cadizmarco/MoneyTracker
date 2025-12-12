@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Budget from '../models/Budget';
 import Transaction from '../models/Transaction';
 import { budgetCreateSchema, budgetUpdateSchema } from '../validation/budget';

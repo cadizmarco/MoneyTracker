@@ -1,10 +1,11 @@
 import rateLimit from 'express-rate-limit';
 import { Request } from 'express';
+import { AuthRequest } from '../types/auth';
 
 // Build a per-user key when available, else fall back to IP
 const keyGenerator: (req: Request) => string = (req) => {
-  const anyReq = req as any;
-  const uid = anyReq.user?.userId as string | undefined;
+  const authReq = req as AuthRequest;
+  const uid = authReq.user?.userId;
   const ip = typeof req.ip === 'string' ? req.ip : 'unknown';
   let key: string = ip;
   if (typeof uid === 'string' && uid.length > 0) {

@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Account from '../models/Account';
 import { accountCreateSchema, accountUpdateSchema } from '../validation/account';
 import { AuthRequest } from '../types/auth';

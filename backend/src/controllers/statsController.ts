@@ -1,4 +1,4 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Transaction from '../models/Transaction';
 import Account from '../models/Account';
 import Budget from '../models/Budget';

@@ -1,14 +1,33 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import Transaction from '../models/Transaction';
 import Account from '../models/Account';
 import { transactionCreateSchema, transactionUpdateSchema } from '../validation/transaction';
 import { AuthRequest } from '../types/auth';
 
+interface TransactionFilter {
+  userId?: string;
+  accountId?: string;
+  category?: string;
+  type?: string;
+  date?: {
+    $gte?: Date;
+    $lte?: Date;
+  };
+}
+
 export const getTransactions = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.userId;
-    const { accountId, startDate, endDate, category, type } = req.query as any;
-    const filter: any = { userId };
+    const { accountId, startDate, endDate, category, type } = req.query as {
+      accountId?: string;
+      startDate?: string;
+      endDate?: string;
+      category?: string;
+      type?: string;
+    };
+
+    const filter: TransactionFilter = { userId };
+
     if (accountId) filter.accountId = accountId;
     if (category) filter.category = category;
     if (type) filter.type = type;
