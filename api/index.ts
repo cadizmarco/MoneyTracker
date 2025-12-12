@@ -38,10 +38,36 @@ async function getHandler() {
 
 export default async function (req: VercelRequest, res: VercelResponse) {
   try {
+    // Debug: Check if files exist
+    const fs = require('fs');
+    const path = require('path');
+
+    // Check paths relative to the current working directory of the function
+    // Note: in Vercel, CWD might be the project root or the api folder depending on config.
+    // We used '../backend' relative to this file location (api/index.ts).
+    const dbPath = path.resolve(__dirname, '../backend/dist/config/db.js');
+    const serverPath = path.resolve(__dirname, '../backend/dist/server.js');
+
+    if (!fs.existsSync(dbPath)) {
+      console.error(`❌ Critical: Backend file not found at: ${dbPath}`);
+      // List files in current directory to help debug
+      try {
+        const currentDir = fs.readdirSync(__dirname);
+        console.log('Files in api dir:', currentDir);
+        const parentDir = fs.readdirSync(path.resolve(__dirname, '..'));
+        console.log('Files in parent dir:', parentDir);
+      } catch (e) { console.log('Could not list dirs'); }
+
+      throw new Error(`Backend build missing at ${dbPath}. Did 'npm run build:backend' fail or process?`);
+    }
+
     // 1. Establish DB connection BEFORE handling request
     // We import this dynamically to ensure it uses the built file
-    const dbModule = require('../backend/dist/config/db.js');
+    const dbModule = require(dbPath);
+
+    // Explicitly handle connectDB promise
     if (dbModule && dbModule.connectDB) {
+      console.log('Using connectDB from loaded module');
       await dbModule.connectDB();
     } else {
       console.warn('⚠️ Could not find connectDB in backend build, relying on server.ts side-effects');
@@ -56,7 +82,9 @@ export default async function (req: VercelRequest, res: VercelResponse) {
     res.status(500).json({
       success: false,
       message: 'Internal server error',
-      error: process.env.NODE_ENV === 'development' ? String(error) : undefined
+      // TEMPORARILY LEAK ERROR FOR DEBUGGING
+      error: String(error),
+      stack: (error as Error).stack
     });
   }
 }
