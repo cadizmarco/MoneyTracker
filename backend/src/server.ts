@@ -103,8 +103,16 @@ app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route not found' });
 });
 
-// Start server
-const PORT = Number(process.env.PORT || 5000);
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
-});
+// Export app for serverless functions (Vercel)
+export default app;
+module.exports = app;
+
+// Start server only if not in serverless environment
+// Check if this file is being run directly (not imported)
+const isServerless = process.env.VERCEL === '1' || process.env.AWS_LAMBDA_FUNCTION_NAME;
+if (!isServerless && require.main === module) {
+  const PORT = Number(process.env.PORT || 5000);
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT} (${process.env.NODE_ENV || 'development'})`);
+  });
+}
