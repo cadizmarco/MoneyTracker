@@ -61,18 +61,26 @@ const maxReq = Number(process.env.RATE_LIMIT_MAX_REQUESTS || 100);
 app.use(rateLimit({ windowMs, max: maxReq }));
 
 // Connect to MongoDB
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/money-tracker';
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 const dbName = process.env.MONGO_DB_NAME || process.env.DB_NAME || 'money-tracker';
 
-mongoose
-  .connect(mongoUri, { dbName })
-  .then(() => {
-    console.log(`✓ MongoDB connected (db: ${dbName})`);
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  });
+if (!mongoUri) {
+  console.error('❌ MONGODB_URI is not defined in environment variables');
+} else {
+  // Check if we are already connected or connecting
+  if (mongoose.connection.readyState === 0) {
+    mongoose
+      .connect(mongoUri, { dbName })
+      .then(() => {
+        console.log(`✓ MongoDB connected (db: ${dbName})`);
+      })
+      .catch((err) => {
+        console.error('MongoDB connection error:', err);
+        // Do NOT exit process in serverless; let the request fail gracefully
+        // process.exit(1);
+      });
+  }
+}
 
 // Health check with DB status
 app.get('/api/health', (req, res) => {
